@@ -1,0 +1,25 @@
+VISUALITZAR LES DADES DELS ARXIUS CSV -----
+Per a veure els atributs:
+LOAD CSV WITH HEADERS FROM "file:///FAMILIA.csv" as line return line
+
+Per a carregar les dades:
+LOAD CSV WITH HEADERS FROM "file:///Individual.csv" AS linia  CREATE (:Individu {Year: toInteger(linia.Year), second_surname: linia.second_surname, surname: linia.surname, name: linia.name,  Id: toInteger(linia.Id)}) 
+LOAD CSV WITH HEADERS FROM "file:///Habitatges.csv" AS linia  CREATE (:Habitatge {Numero: toInteger(linia.Numero), Any_Padro: toInteger(linia.Any_Padro), Carrer: linia.Carrer, Municipi: linia.Municipi, Id_Llar: toInteger(linia.Id_Llar)})
+
+Per a crear les relacions:
+LOAD CSV WITH HEADERS FROM 'file:///VIU.csv' AS linia
+MATCH (a:Individu {Id: toInteger(linia.IND)}), (b:Habitatge {Id_Llar: toInteger(linia.HOUSE_ID), Municipi: linia.Location, Any_Padro: toInteger(linia.Year)})
+MERGE (a)-[:VIU]->(b);
+
+LOAD CSV WITH HEADERS FROM 'file:///FAMILIA.csv' AS linia
+MATCH (a:Individu {Id: toInteger(linia.ID_1)}), (b:Individu {Id: toInteger(linia.ID_2)})
+MERGE (a)-[:FAMILIA {Relacio: linia.Relacio, Relacio_Harmonitzada: linia.Relacio_Harmonitzada}]->(b);
+
+LOAD CSV WITH HEADERS FROM 'file:///same_as.csv' AS linia
+MATCH (a:Individu {Id: toInteger(linia.Id_A)}), (b:Individu {Id: toInteger(linia.Id_B)})
+MERGE (a)-[:SAME_AS]->(b);
+
+
+Crear els constraints:
+CREATE CONSTRAINT ConstraintHabitatge ON (h:Habitatge) ASSERT (h.Any_Padro, h.Id_Llar) IS NODE KEY
+CREATE CONSTRAINT ConstraintIndividu ON (i:Individu) ASSERT (i.Id) IS UNIQUE
