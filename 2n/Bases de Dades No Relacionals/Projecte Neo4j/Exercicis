@@ -1,0 +1,167 @@
+EXERCICI 1
+Importar les dades
+
+
+EXERCICI 2
+Consulta 1
+MATCH (h:Habitatge)<-[r:VIU]-(i:Individu) WHERE h.Any_Padro=1866 AND h.Municipi='CR' AND i.surname <> 'nan'   RETURN count(r), collect(distinct(i.surname))
+
+Consulta 2
+AMB NOMS:
+MATCH (h:Habitatge)<-[r:VIU]-(i:Individu) WHERE h.Any_Padro < 1840 AND h.Municipi='SFLL'   RETURN h.Any_Padro as ANY_PADRO, collect(distinct(h.Id_Llar)) as IDS_LLARS, collect(distinct(i.name)) as POBLACIO ORDER BY h.Any_Padro
+SENSE NOMS:
+MATCH (h:Habitatge)<-[r:VIU]-(i:Individu) WHERE h.Any_Padro < 1840 AND h.Municipi='SFLL'   RETURN h.Any_Padro as ANY_PADRO, collect(distinct(h.Id_Llar)) as IDS_LLARS ORDER BY h.Any_Padro
+
+Consulta 3
+MATCH (i1:Individu)-[:VIU]->(h:Habitatge)<-[:VIU]-(i2:Individu) WHERE i1.name = 'rafel' AND i1.surname = 'marti' AND h.Municipi = 'SFLL' AND h.Any_Padro = 1838 RETURN i1 as INDIVIDU1, i2 as INDIVIDU2
+
+En forma de llista:
+MATCH (i1:Individu)-[:VIU]->(h:Habitatge)<-[:VIU]-(i2:Individu) WHERE i1.name = 'rafel' AND i1.surname = 'marti' AND h.Municipi = 'SFLL' AND h.Any_Padro = 1838 RETURN i1.name as NOM, collect(i2.name) as CONVIVENTS
+
+Consulta 4
+MATCH (i1:Individu)<-[r:SAME_AS]->(i2:Individu) WHERE toLower(i1.name) = 'miguel' AND toLower(i1.surname) = 'ballester'  RETURN i1, i2
+
+Consulta 5
+MATCH (i0:Individu)<-[r]->(i1:Individu) WHERE i1.name='antonio' AND i1.surname='farran' RETURN i0.name AS NOM, i0.surname AS COGNOM1, i0.second_surname AS COGNOM2, type(r) AS TIPUS
+
+Consulta 6
+MATCH (i0:Individu)<-[r:FAMILIA]->(i1:Individu) WHERE r.Relacio_Harmonitzada <> 'null' RETURN DISTINCT r.Relacio_Harmonitzada AS RELACIONS_FAMILIARS
+
+Consulta 7 
+MATCH (h1:Habitatge), (h2:Habitatge) WHERE h1.Municipi='SFLL' AND h2.Municipi='SFLL' AND h1.Carrer = h2.Carrer AND h1.Numero=h2.Numero RETURN h1.Carrer as CARRER, h1.Numero as NUM, collect(distinct(h1.Any_Padro)) as ANY_PADRO, collect(distinct(h1.Id_Llar)) as IDS_LLARS, size(collect(distinct(h1.Id_Llar))) as TOTAL_HAB ORDER BY TOTAL_HAB DESC LIMIT 10
+
+Consulta 8
+MATCH (i0:Individu)-[r:FAMILIA]->(i1:Individu), (i0)-[:VIU]->(h:Habitatge)
+WHERE r.Relacio_Harmonitzada IN ["fill","filla"] AND h.Municipi='CR'
+RETURN i0.name, i0.surname, i0.second_surname, count(i1) ORDER BY count(i1) DESC LIMIT 20
+
+Consulta 9 
+MATCH (i0:Individu)-[r:FAMILIA]->(i1:Individu)-[:VIU]->(h:Habitatge) WHERE h.Municipi='SFLL' AND r.Relacio_Harmonitzada IN ["fill","filla"] AND h.Any_Padro=1881 RETURN count(r) as FILLS, count(distinct(h.Id_Llar)) as HABITATGES, count(r)/count(distinct(h.Id_Llar)) as MITJANA
+
+Consulta 10 
+MATCH (i:Individu)-[r:VIU]->(h:Habitatge) WHERE h.Municipi='SFLL' WITH h.Any_Padro as ANY, h.Carrer as CARRER, count(h) as NUM_HAB WITH ANY, min(NUM_HAB) as MIN_HAB 
+MATCH (i)-[r:VIU]->(h) WHERE h.Municipi='SFLL' AND h.Any_Padro = ANY WITH h.Any_Padro as ANY_PADRO, h.Carrer as CARRER, count(h) as NUM_HAB, MIN_HAB
+WHERE MIN_HAB = NUM_HAB
+RETURN MIN_HAB, ANY_PADRO, CARRER
+
+
+EXERCICI 3
+Apartat a)
+
+---- Persones sense habitatge
+Creació del graf:
+CALL gds.graph.create.cypher("graf","match (n)
+where n:Individu OR
+n:Habitatge return id(n)
+as id","match (h:Habitatge)<-[r:VIU]-(i:Individu) return id(h) as target, id(i) as source")
+
+Consulta:
+call gds.wcc.stream('graf')
+yield componentId, nodeId
+with componentId, collect(nodeId) as nodes,
+size(collect(nodeId)) as mida
+where mida = 1
+match (n)
+where id(n)
+ in nodes
+return n;
+
+---- Component connexa més gran
+Creació del graf:
+CALL gds.graph.create.cypher("graf","match (n)
+ where n:Individu OR
+n:Habitatge return id(n)
+as id","match (h:Habitatge)<-[r:VIU]-(i:Individu)
+return id(h) as target, id(i) as source")
+
+Consulta:
+call gds.wcc.stream('graf')
+yield componentId, nodeId
+with componentId, collect(nodeId) as nodes,
+size(collect(nodeId)) as mida
+order by mida desc
+limit 1
+match (n)
+where id(n) in nodes
+return n;
+
+---- Individus sense familia
+Creació del graf:
+CALL gds.graph.create.cypher("graf2","match (n)
+ where n:Individu  return id(n)as id","match
+(i1:Individu)<-[r:FAMILIA]-(i2:Individu) return
+id(i1) as target, id(i2) as source")
+
+Consulta:
+call gds.wcc.stream('graf2')
+yield componentId, nodeId
+with componentId, collect(nodeId) as nodes,
+size(collect(nodeId)) as mida
+where mida = 1
+match (n)
+where id(n) in nodes
+return n;
+
+---- Component connexa més gran del graf2
+Creació del graf:
+CALL gds.graph.create.cypher("graf2","match (n)
+ where n:Individu  return id(n)as id","match
+(i1:Individu)<-[r:FAMILIA]-(i2:Individu) return
+id(i1) as target, id(i2) as source")
+
+Consulta:
+call gds.wcc.stream('graf2')
+yield componentId, nodeId
+with componentId, collect(nodeId) as nodes,
+size(collect(nodeId)) as mida
+order by mida desc
+limit 1
+match(n)
+where id(n) in nodes
+return n;
+
+---- Famílies més grans amb "jefes"
+Creació del graf:
+CALL gds.graph.create.cypher("graf2","match (n)
+ where n:Individu  return id(n)as id","match
+(i1:Individu)<-[r:FAMILIA]-(i2:Individu) return
+id(i1) as target, id(i2) as source")
+
+Consulta:
+call gds.wcc.stream('graf2')
+yield componentId, nodeId
+with componentId, collect(nodeId) as nodes, size(collect(nodeId)) as mida
+order by mida desc
+limit 3
+match (n:Individu)<-[r:FAMILIA]-(n:Individu)- [r2:FAMILIA]->(n2:Individu)
+where r.Relacio_Harmonitzada = 'jefe' and id(n) in nodes
+return n,n2;
+
+Apartat b)
+-- Mateixos habitatges al llarg dels anys
+MATCH (h1:Habitatge),(h2:Habitatge) WHERE h1.Carrer = h2.Carrer and h1.Numero = h2.Numero and h1.Municipi = h2.Municipi and h1.Id_Llar <> h2.Id_Llar and h2.Any_Padro < h1.Any_Padro CREATE (h1)-[:MATEIX_HAB]->(h2)
+
+--Creem un graf amb les relacions preexistents i les que acabem de crear
+CALL gds.graph.create('graf5',
+  ['Individu','Habitatge'],
+  {FAMILIA:{
+      type:'FAMILIA',
+      orientation:'NATURAL'},
+    VIU: {
+      type:'VIU',
+      orientation: 'NATURAL'},
+    MATEIX_HAB: {
+      type:'MATEIX_HAB',
+      orientation: 'NATURAL'}})
+
+-- Calculem la similaritat entre els nodes
+CALL gds.nodeSimilarity.write('graf5', {
+    writeProperty: 'score',
+    writeRelationshipType: 'SAME_IND',
+    similarityCutoff:0.6
+})
+YIELD nodesCompared
+
+-- Visualitzem els resultats
+CALL gds.nodeSimilarity.stats('graf5')
+YIELD nodesCompared, similarityDistribution
